@@ -1,4 +1,4 @@
-#VERSION: 2.3
+#VERSION: 2.4
 #Author: Douman (douman@gmx.se)
 #        Bruno Barbieri (brunorex@gmail.com)
 
@@ -16,7 +16,7 @@ from novaprinter import prettyPrinter
 from helpers import download_file, retrieve_url
 
 class tokyotoshokan(object):
-    url = 'http://tokyotosho.info'
+    url = 'https://www.tokyotosho.info'
 
     global page_count
     page_count = 1
@@ -67,23 +67,9 @@ class tokyotoshokan(object):
                     self.stat_name = "leech" if "seeds" in self.current_item else "seeds"
 
             elif tag == "tr" and "class" in params:
-                if params["class"].find("category"):
+                if params["class"].find("category") != -1:
                     self.current_item = dict()
                     self.current_item["engine_url"] = self.url
-
-        def handle_endtag(self, tag):
-            if tag == "a":
-                if self.name_found:
-                    self.name_found = False
-            elif tag == "span":
-                self.stat_name = None
-            elif self.current_item and tag == "tr" and len(self.current_item) == 7:
-                prettyPrinter(self.current_item)
-                self.current_item = None
-                self.size_found = False
-                self.name_found = False
-                self.stats_found = False
-                self.stat_name = None
 
         def handle_data(self, data):
             if self.name_found:
@@ -97,6 +83,19 @@ class tokyotoshokan(object):
             elif self.stat_name:
                 self.current_item[self.stat_name] = data
 
+        def handle_endtag(self, tag):
+            if tag == "a":
+                if self.name_found:
+                    self.name_found = False
+            elif tag == "span" and self.stats_found:
+                self.stat_name = None
+            elif self.current_item and tag == "tr" and len(self.current_item) == 7:
+                prettyPrinter(self.current_item)
+                self.current_item = None
+                self.size_found = False
+                self.name_found = False
+                self.stats_found = False
+                self.stat_name = None
     def handle_more_pages(self, last_page_url, parser, query, skip_first=False):
         torrent_list = re_compile("(?s)<table class=\"listing\">(.*)</table>")
         additional_links = re_compile("\?lastid=[0-9]+&page=[0-9]+&terms={}".format(query.replace('%20', '\\+')))
@@ -104,6 +103,7 @@ class tokyotoshokan(object):
         data = retrieve_url(last_page_url)
         data = torrent_list.search(data).group(0)
 
+        print('>>', data)
         for res_link in map(lambda link: "".join((self.url, "/search.php", link.group(0))), additional_links.finditer(data)):
             if skip_first:
                 skip_first = False
@@ -126,7 +126,7 @@ class tokyotoshokan(object):
         page_multiplier = 1;
 
         torrent_list = re_compile("(?s)<table class=\"listing\">(.*)</table>")
-        request_url = '{0}/search.php?terms={1}&type={2}&size_min=&size_max=&username='.format(self.url, query, self.supported_categories[cat])
+        request_url = '{0}/search.php?terms={1}&type={2}&searchName=true&searchComment=true&size_min=&size_max=&username='.format(self.url, query, self.supported_categories[cat])
         data = retrieve_url(request_url)
 
         data = torrent_list.search(data).group(0)
@@ -141,3 +141,6 @@ class tokyotoshokan(object):
                 page_multiplier += 1
             else:
                 break
+if __name__ == '__main__':
+    searchPlugin = tokyotoshokan()
+    searchPlugin.search('no watermark')
