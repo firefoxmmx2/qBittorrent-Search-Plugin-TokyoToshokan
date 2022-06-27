@@ -1,6 +1,7 @@
 #VERSION: 2.4
 #Author: Douman (douman@gmx.se)
 #        Bruno Barbieri (brunorex@gmail.com)
+#        firefoxmmx(firefoxmmx@163.com)
 
 try:
     #python3
@@ -96,28 +97,6 @@ class tokyotoshokan(object):
                 self.name_found = False
                 self.stats_found = False
                 self.stat_name = None
-    def handle_more_pages(self, last_page_url, parser, query, skip_first=False):
-        torrent_list = re_compile("(?s)<table class=\"listing\">(.*)</table>")
-        additional_links = re_compile("\?lastid=[0-9]+&page=[0-9]+&terms={}".format(query.replace('%20', '\\+')))
-
-        data = retrieve_url(last_page_url)
-        data = torrent_list.search(data).group(0)
-
-        print('>>', data)
-        for res_link in map(lambda link: "".join((self.url, "/search.php", link.group(0))), additional_links.finditer(data)):
-            if skip_first:
-                skip_first = False
-                continue
-
-            global page_count
-            page_count += 1
-            last_page_url = res_link
-            data = retrieve_url(res_link)
-            data = torrent_list.search(data).group(0)
-            parser.feed(data)
-            parser.close()
-
-        return last_page_url
 
     def search(self, query, cat='all'):
         query = query.replace(' ', '+')
@@ -125,22 +104,22 @@ class tokyotoshokan(object):
         last_page_url = ""
         page_multiplier = 1;
 
-        torrent_list = re_compile("(?s)<table class=\"listing\">(.*)</table>")
-        request_url = '{0}/search.php?terms={1}&type={2}&searchName=true&searchComment=true&size_min=&size_max=&username='.format(self.url, query, self.supported_categories[cat])
-        data = retrieve_url(request_url)
+        def _search(url,query,cat,page): 
+            torrent_list = re_compile("(?s)<table class=\"listing\">(.*)</table>")
+            request_url = '{0}/search.php?terms={1}&type={2}&page={3}&searchName=true&searchComment=true&size_min=&size_max=&username='.format(url, query, cat, page)
+            data = retrieve_url(request_url)
+            data = torrent_list.search(data).group(0)
+            parser.feed(data)
+            parser.close()
+            return data
 
-        data = torrent_list.search(data).group(0)
-        parser.feed(data)
-        parser.close()
-
-        last_page_url = self.handle_more_pages(request_url, parser, query)
-
+        search_data = None
         while True:
-            if page_count > (page_multiplier*5):
-                last_page_url = self.handle_more_pages(last_page_url, parser, query, True)
+            if search_data == None or search_data.find('category') != -1:
+                search_data = _search(self.url, query, self.supported_categories[cat], page_multiplier)
                 page_multiplier += 1
             else:
                 break
 if __name__ == '__main__':
     searchPlugin = tokyotoshokan()
-    searchPlugin.search('no watermark')
+    searchPlugin.search('gold bear')
